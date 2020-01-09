@@ -171,11 +171,13 @@ int main(int argc, char *argv[])
 	Camera camera;
 
 	std::vector<Sphere> spheres;
-	spheres.push_back(Sphere(glm::vec3(0.0f, 0.0f, -1.0f), 0.5f));
-	spheres.push_back(Sphere(glm::vec3(0.0f, -100.5f, -1.0f), 100.0f));
+	spheres.push_back(Sphere(glm::vec3(-0.75f, 0.0f, -1.0f), 0.5f));
+	spheres.push_back(Sphere(glm::vec3(0.75f, 0.0f, -1.0f), 0.5f));
+	spheres.push_back(Sphere(glm::vec3(0.0f, -50.5f, -1.0f), 50.0f));
 
 	std::vector<Light> lights;
-	lights.push_back(Light(glm::vec3(0.0f, 1.5f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
+	lights.push_back(Light(glm::vec3(25.0f, 50.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
+	lights.push_back(Light(glm::vec3(-25.0f, 50.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)));
 
 	auto start = std::chrono::high_resolution_clock::now();
 
