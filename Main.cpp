@@ -5,15 +5,12 @@
 #include <future>
 #include <iostream>
 #include <chrono>
+#include <glm/gtx/norm.hpp>
 #include <glm/gtx/string_cast.hpp>
 
 #define USE_ASYNC 1
 #define USE_THREADS 0
 #define USE_SINGLE 0
-
-struct Material
-{
-};
 
 struct Light
 {
@@ -23,12 +20,14 @@ struct Light
 	glm::vec3 colour;
 };
 
+struct Material;
 struct Sphere
 {
-	Sphere(glm::vec3 position, float radius) : position(position), radius(radius) {}
+	Sphere(glm::vec3 position, float radius, Material* material) : position(position), radius(radius), material(material) {}
 
 	glm::vec3 position;
 	float radius;
+	Material* material;
 };
 
 struct Ray
@@ -63,6 +62,36 @@ struct HitInfo
 	glm::vec3 normal;
 };
 
+inline double random_double() { return rand() / (RAND_MAX + 1.0f); }
+glm::vec3 random_point_in_sphere()
+{
+	glm::vec3 p;
+	do { p = 2.0f * glm::vec3(random_double(), random_double(), random_double()) - glm::vec3(1.0f, 1.0f, 1.0f); } while (glm::length2(p) >= 1.0f);
+	return p;
+}
+
+struct Material
+{
+	virtual glm::vec3 scatter(Ray r, HitInfo i) = 0;
+};
+
+struct Matte : Material
+{
+	glm::vec3 scatter(Ray r, HitInfo i)
+	{
+		glm::vec3 target = i.position + i.normal + random_point_in_sphere();
+		return i.position - target;
+	}
+};
+
+struct Metal : Material
+{
+	glm::vec3 scatter(Ray r, HitInfo i)
+	{
+		return glm::reflect(glm::normalize(r.direction), i.normal);
+	}
+};
+
 HitInfo ray_sphere_intersect(Ray r, Sphere s)
 {
 	glm::vec3 oc = r.origin - s.position;
@@ -79,36 +108,32 @@ HitInfo ray_sphere_intersect(Ray r, Sphere s)
 	return info;
 }
 
+glm::vec3 lighting(const std::vector<Light>& lights, HitInfo i)
+{
+	glm::vec3 total_light(0.0f, 0.0f, 0.0f);
+	for (auto& l : lights)
+	{
+		glm::vec3 d = glm::normalize(l.position - i.position);
+		float a = glm::max(0.0f, glm::dot(d, i.normal)); // make sure side facing light is lit
+
+		total_light += l.colour * a; // add the light falling on the object to the total light
+	}
+
+	return total_light;
+}
+
 glm::vec3 colour(Ray r, const std::vector<Sphere>& spheres, const std::vector<Light>& lights)
 {
 	for (auto& s : spheres)
 	{
 		HitInfo i = ray_sphere_intersect(r, s);
 		if (i.t > 0.0f) // collides
-		{
-			// Normal of the point ray hits the sphere.
-			glm::vec3 normal = glm::normalize(r.point(i.t) - glm::vec3(0.0f, 0.0f, -1.0f));
-
-			glm::vec3 total_light(0.0f, 0.0f, 0.0f);
-
-			// LIGHTING
-			for (auto& l : lights)
-			{
-				glm::vec3 d = glm::normalize(l.position - r.point(i.t));
-				float a = glm::max(0.0f, glm::dot(d, normal)); // make sure side facing light is lit
-
-				total_light += l.colour * a; // add the light falling on the object to the total light
-			}
-
-			return total_light;
-		}
+			return lighting(lights, i) * colour(Ray(i.position, s.material->scatter(r, i)), spheres, lights); // send out another ray directed by the spheres material
 	}
 
 	float t = float(0.5 * (glm::normalize(r.direction).y + 1.0f));
-	return (1.0f - t) * glm::vec3(1.0f, 1.0f, 1.0f) + t * glm::vec3(0.5f, 0.7f, 1.0f);
+	return (1.0f - t) * glm::vec3(1.0f, 1.0f, 1.0f) + t * glm::vec3(0.5f, 0.7f, 1.0f); // sky colour with gradient
 }
-
-inline double random_double() { return rand() / (RAND_MAX + 1.0f); }
 
 // USED FOR ASYNC
 std::vector<glm::vec3> raytraceRow(glm::ivec2 size, int samples, int y, Camera& camera, const std::vector<Sphere>& spheres, const std::vector<Light>& lights)
@@ -170,14 +195,18 @@ int main(int argc, char *argv[])
 
 	Camera camera;
 
+	Matte matte;
+	Metal metal;
+
 	std::vector<Sphere> spheres;
-	spheres.push_back(Sphere(glm::vec3(-0.75f, 0.0f, -1.0f), 0.5f));
-	spheres.push_back(Sphere(glm::vec3(0.75f, 0.0f, -1.0f), 0.5f));
-	spheres.push_back(Sphere(glm::vec3(0.0f, -50.5f, -1.0f), 50.0f));
+	spheres.push_back(Sphere(glm::vec3(-0.75f, 0.0f, -1.0f), 0.5f, &matte));
+	spheres.push_back(Sphere(glm::vec3(0.75f, 0.0f, -1.0f), 0.5f, &metal));
+	spheres.push_back(Sphere(glm::vec3(0.0f, -50.5f, -1.0f), 50.0f, &metal));
 
 	std::vector<Light> lights;
 	lights.push_back(Light(glm::vec3(25.0f, 50.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
 	lights.push_back(Light(glm::vec3(-25.0f, 50.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)));
+	lights.push_back(Light(glm::vec3(0.0f, 50.0f, -25.0f), glm::vec3(0.0f, 0.3f, 0.0f)));
 
 	auto start = std::chrono::high_resolution_clock::now();
 
