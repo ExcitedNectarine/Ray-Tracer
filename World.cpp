@@ -29,8 +29,7 @@ glm::vec3 World::colour(Ray r)
 			return lighting(i) * colour(Ray(i.position, obj->material->scatter(r, i))); // send out another ray directed by the spheres material and apply lighting to result
 	}
 
-	float t = float(0.5 * (glm::normalize(r.direction).y + 1.0f));
-	return (1.0f - t) * glm::vec3(1.0f, 1.0f, 1.0f) + t * glm::vec3(0.5f, 0.7f, 1.0f); // sky colour with gradient
+	return glm::vec3(0.5f, 0.7f, 1.0f); // return sky colour
 }
 
 // USED FOR ASYNC

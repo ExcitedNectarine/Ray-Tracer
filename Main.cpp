@@ -20,7 +20,9 @@ int main(int argc, char *argv[])
 		<< "Press 2 for threaded raytrace" << std::endl
 		<< "Press 3 for single core raytrace" << std::endl;
 	std::cin >> i;
-	int cores = getCores();
+
+	int cores = 0;
+	if (i == 2) cores = getCores();
 
 	World world(glm::ivec2(1600, 800), 25);
 
